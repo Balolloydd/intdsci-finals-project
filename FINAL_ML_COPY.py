@@ -94,10 +94,22 @@ plt.tight_layout()
 plt.show()  
 
 # 4. Feature Preparation & Engineering
-processed_data = data.copy()
+
+# Keep records where the bike-sharing system is functioning
+processed_data = data[data["Functioning Day"] == "Yes"].copy()
+
+# Remove Functioning Day because every remaining value is Yes
+processed_data = processed_data.drop(columns=["Functioning Day"])
+
+print("Records after filtering:", len(processed_data))
 
 # Datetime conversion
-processed_data["Date"] = pd.to_datetime(processed_data["Date"], dayfirst=True, errors="coerce")
+processed_data["Date"] = pd.to_datetime(
+    processed_data["Date"],
+    dayfirst=True,
+    errors="coerce"
+)
+
 processed_data["Month"] = processed_data["Date"].dt.month.astype(str)
 processed_data["Day of Week"] = processed_data["Date"].dt.day_of_week.astype(str)
 processed_data["Hour"] = processed_data["Hour"].astype(str)
@@ -105,9 +117,6 @@ processed_data["Hour"] = processed_data["Hour"].astype(str)
 # Select features
 X = processed_data.drop(columns=["Rented Bike Count", "Date"])
 y_continuous = processed_data["Rented Bike Count"]
-
-# One-hot encode categorical features
-X = pd.get_dummies(X, dtype=int)
 
 # 5. Data Splitting
 X_train, X_test, y_train_continuous, y_test_continuous = train_test_split(
@@ -117,6 +126,13 @@ X_train, X_test, y_train_continuous, y_test_continuous = train_test_split(
 )
 
 
+# One-hot encoding based on training data
+X_train = pd.get_dummies(X_train, dtype=int)
+X_test = pd.get_dummies(X_test, dtype=int)
+
+# Match test columns to training columns
+X_test = X_test.reindex(columns=X_train.columns, fill_value=0)
+
 # Calculate the target median using ONLY the isolated training split data
 train_median = y_train_continuous.median()
 print(f"\nNon-Stratified Training Median Threshold: {train_median}")
@@ -125,26 +141,6 @@ print(f"\nNon-Stratified Training Median Threshold: {train_median}")
 # Binarize both targets using the training set's threshold
 y_train = (y_train_continuous >= train_median).astype(int)
 y_test = (y_test_continuous >= train_median).astype(int)
-
-
-# Correlation Matrix
-correlation_data = X_train.copy()
-correlation_data["Demand Level"] = y_train
-
-# Calculate correlation with Demand Level
-correlation = correlation_data.corr(numeric_only=True)["Demand Level"]
-correlation = correlation.drop(["Demand Level"], errors="ignore").sort_values(ascending=False)
-
-# Visualize Correlation
-plt.figure(figsize=(10, 8))
-plt.barh(correlation.index, correlation.values)
-plt.gca().invert_yaxis()  # Highest correlation at top
-plt.axvline(0, color="black", linewidth=0.8, linestyle="--")
-plt.title("Correlation of Input Features with Demand Level")
-plt.xlabel("Correlation Coefficient")
-plt.ylabel("Input Features")
-plt.tight_layout()
-plt.show()
 
 
 
